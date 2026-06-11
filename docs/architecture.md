@@ -70,10 +70,10 @@
 
 ## 監査証跡
 
-取得・分析の正当性を後から人が検証できるよう、各スクリプトは実行時に `out/` へ証跡を残します（`scripts/audit-log.ts` に集約）。
+取得・分析の正当性を後から人が検証できるよう、各スクリプトは実行時に証跡を残します（`scripts/audit-log.ts` に集約）。`out/` 配下は用途別に分け、機械処理向け（生データ・ログ）を `out/data/`、人間向け（レポート・ノート）を `out/reports/` に出力します（サブディレクトリ名は `audit-log.ts` の `MACHINE_SUBDIR` / `REPORT_SUBDIR` 定数で一元管理）。
 
-- `out/api-requests.jsonl`: API 呼び出しごとの URL（`appId` は `REDACTED`）。`appendApiRequest` が追記します。
-- `out/audit-log.jsonl`: 操作レベルの構造化イベント（`fetch` / `analyze` / `report`）。`appendAuditEvent` が追記します。
-- `out/audit-note.md`: エージェントが書く、表・コード選定の根拠（人間可読）。`SKILL.md` のステップ5で指示します。
+- `out/data/api-requests.jsonl`: API 呼び出しごとの URL（`appId` は `REDACTED`）。`appendApiRequest` が追記します。
+- `out/data/audit-log.jsonl`: 操作レベルの構造化イベント（`fetch` / `analyze` / `report`）。`appendAuditEvent` が追記します。
+- `out/reports/audit-note.md`: エージェントが書く、表・コード選定の根拠（人間可読）。`SKILL.md` のステップ5で指示します。
 
-保存先は全スクリプト共通の `--logDir <dir>`、無効化は `--noLog` で制御します（`configureAuditLog`）。`api-requests.jsonl` のフォーマット・既定の出力先は従来どおりです。
+保存先のベースは全スクリプト共通の `--logDir <dir>`、無効化は `--noLog` で制御します（`configureAuditLog`）。JSONL ログは指定ベースの `data/` 配下に書かれます。

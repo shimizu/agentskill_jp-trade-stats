@@ -4,13 +4,20 @@
  * estat.ts / analyze.ts / builders から共通で使う。後から人が「どんなデータを
  * 取得し、どんな分析をしたか」の正当性を検証できるよう、2 系統のログを残す:
  *
- *   out/api-requests.jsonl  — API 呼び出しURL（appId は REDACTED）。低レベルの生の証拠。
- *   out/audit-log.jsonl     — fetch/analyze/report の操作レベル構造化イベント。
+ *   out/data/api-requests.jsonl  — API 呼び出しURL（appId は REDACTED）。低レベルの生の証拠。
+ *   out/data/audit-log.jsonl     — fetch/analyze/report の操作レベル構造化イベント。
  *
- * 保存先は --logDir <dir> で変更でき、--noLog で両方とも無効化できる。
+ * 保存先（out/ のベース）は --logDir <dir> で変更でき、--noLog で両方とも無効化できる。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+/**
+ * out/ 配下の出力サブディレクトリ。機械処理向け（生データ JSON・JSONL ログ）と
+ * 人間向け（Markdown・CSV・audit-note.md）を物理的に分離する。
+ */
+export const MACHINE_SUBDIR = "data"; // 機械処理向け: 生データ・ログ
+export const REPORT_SUBDIR = "reports"; // 人間向け: md/csv/ノート
 
 type LogConfig = {
   enabled: boolean;
@@ -38,8 +45,9 @@ function redactUrl(url: string) {
 
 function appendLine(file: string, entry: Record<string, any>) {
   if (!config.enabled) return;
-  fs.mkdirSync(config.dir, { recursive: true });
-  fs.appendFileSync(path.join(config.dir, file), JSON.stringify(entry) + "\n");
+  const dir = path.join(config.dir, MACHINE_SUBDIR);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.appendFileSync(path.join(dir, file), JSON.stringify(entry) + "\n");
 }
 
 /** API 呼び出しの URL を api-requests.jsonl に追記する（appId はマスク）。 */

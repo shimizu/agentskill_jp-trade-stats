@@ -31,6 +31,16 @@ export ESTAT_APP_ID=<your-application-id>
 
 `ESTAT_APP_ID` が無いとスクリプトは明確なエラーで停止する。ユーザーがまだ持っていない場合は、登録手順を先に案内すること。
 
+## 出力ディレクトリ
+
+生成物は用途別に `out/` 配下のサブディレクトリへ分けて置く（既定。出力先ベースは引数で変更可）。
+
+```
+out/
+├── data/      # 機械処理向け: 取得生データ(*.json) + 機械ログ(api-requests.jsonl / audit-log.jsonl)
+└── reports/   # 人間向け: レポート(*.md / *.csv) + audit-note.md
+```
+
 ## 標準ワークフロー
 
 貿易統計の取得・分析は基本的に次の4ステップ。**ステップ2のメタ確認を飛ばさない**（表ごとに次元の割り当てが違うため）。
@@ -62,12 +72,12 @@ npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts meta --id <statsDataId> --
 ### 3. データを取得する
 
 ```bash
-# 例: ある表から品目=<HSコード>, 期間=範囲 で取得し JSON 保存
+# 例: ある表から品目=<HSコード>, 期間=範囲 で取得し JSON 保存（機械処理向けは out/data/ に置く）
 npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <statsDataId> \
-  --cdCat01 <品目コード> --cdTimeFrom <from> --cdTimeTo <to> --pretty > data.json
+  --cdCat01 <品目コード> --cdTimeFrom <from> --cdTimeTo <to> --pretty > out/data/data.json
 
 # CSV が欲しい場合
-npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <statsDataId> --cdCat01 <品目コード> --csv > data.csv
+npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <statsDataId> --cdCat01 <品目コード> --csv > out/data/data.csv
 ```
 
 - フィルタは `--cdTab/--cdCat01../--cdArea/--cdTime`（単一）と `--cd...From/--cd...To`（範囲）。
@@ -104,7 +114,7 @@ npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <id> --cdCat01 
 
 ### 5. 監査ノートを書く（データ取得・分析を伴うタスクの最後に必ず）
 
-取得・分析を行ったら、後から人がその**正当性**を検証できるよう、`out/audit-note.md` に日時見出し付きのセクションを**追記**する（毎タスク1セクション。上書きせず追記し、時系列で読めるようにする）。
+取得・分析を行ったら、後から人がその**正当性**を検証できるよう、`out/reports/audit-note.md` に日時見出し付きのセクションを**追記**する（毎タスク1セクション。上書きせず追記し、時系列で読めるようにする）。
 
 ```markdown
 ## <YYYY-MM-DD HH:MM> <依頼の要約>
@@ -116,7 +126,7 @@ npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <id> --cdCat01 
 - 結果の要点: <主要な数値・順位・トレンド>
 - 注意/限界: <単位=千円, 速報除外, 計測固定の有無 など>
 - 出典: 財務省貿易統計 / e-Stat API
-- 機械ログ: out/api-requests.jsonl, out/audit-log.jsonl を参照
+- 機械ログ: out/data/api-requests.jsonl, out/data/audit-log.jsonl を参照
 ```
 
 機械ログ（後述）が「実際に何を叩いて何を集計したか」の客観的証拠、この Markdown が「なぜその表・コードを選んだか」の根拠。両者を突き合わせれば取得・分析の妥当性を第三者が検証できる。
@@ -151,14 +161,14 @@ npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <id> --cdCat01 
 
 ## 監査ログ（データ取得・分析の記録）
 
-`estat.ts` / `analyze.ts` / `builders/trade-report.ts` は実行時に `out/` へ自動で証跡を残す。後から人が取得・分析の正当性を検証するための仕組み。
+`estat.ts` / `analyze.ts` / `builders/trade-report.ts` は実行時に `out/data/` へ自動で証跡を残す。後から人が取得・分析の正当性を検証するための仕組み。
 
-- `out/api-requests.jsonl` — API 呼び出しごとの URL（`appId` は `REDACTED` に置換）。低レベルの生の証拠。
-- `out/audit-log.jsonl` — 操作レベルの構造化イベント（1行1JSON）。
+- `out/data/api-requests.jsonl` — API 呼び出しごとの URL（`appId` は `REDACTED` に置換）。低レベルの生の証拠。
+- `out/data/audit-log.jsonl` — 操作レベルの構造化イベント（1行1JSON）。
   - `fetch`: statsDataId・タイトル・フィルタ・取得件数・計測（tab/cat02 の distinct と単位）・出力形式。
   - `analyze`: モード・フィルタ・入力/絞り込み後件数・警告・結果サマリ。
   - `report`: 種別・タイトル・入力ファイル・出力ファイル・サマリ。
-- `out/audit-note.md` — エージェントが書く「なぜその表・コードを選び、何をどう分析したか」の根拠（上記ステップ5）。
+- `out/reports/audit-note.md` — エージェントが書く「なぜその表・コードを選び、何をどう分析したか」の根拠（上記ステップ5）。
 
 保存先を変える場合は全スクリプト共通の `--logDir <dir>`、一時的に無効化する場合は `--noLog` を使う（両 JSONL とも止まる）。`audit-note.md` の主張は JSONL で裏取りできる関係にあるので、両方を残すこと。
 
@@ -176,7 +186,9 @@ npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <id> --cdCat01 
 - 保管先: `.agent/skills/jp-trade-stats/scripts/builders/`。
 - 汎用ビルダー: `trade-report.ts`。`--config <json>` または `--preset <name>` で実行する。
 - プリセット: `.agent/skills/jp-trade-stats/scripts/builders/presets/` に、用途が分かる英語ケバブケースで保存する。
-- 入出力: 出力先は**引数で受け取り、既定は作業ディレクトリ直下の `out/`**。生成物（.md/.csv）と取得データ（`out/data/*.json`）は `out/` に置く。
+- 入出力: 出力先は**引数で受け取り、既定は作業ディレクトリ直下の `out/`**。用途別にサブディレクトリへ分けて出力する。
+  - **機械処理向け** → `out/data/`: 取得データ（`*.json`）と機械ログ（`api-requests.jsonl` / `audit-log.jsonl`）。
+  - **人間向け** → `out/reports/`: レポート生成物（`.md` / `.csv`）と `audit-note.md`。
 - 設定の基本項目:
   - `kind`: `annual-comparison`（年次比較 Markdown＋CSV）または `monthly-series`（月次系列 CSV）。
   - `items`: 合算・比較する対象コードと名称（例: HS 2桁章、HS 4桁項、国コードなど）。

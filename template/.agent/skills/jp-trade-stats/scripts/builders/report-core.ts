@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { appendAuditEvent } from "../audit-log.ts";
+import { appendAuditEvent, REPORT_SUBDIR } from "../audit-log.ts";
 
 type Rec = Record<string, any> & { value: number | null };
 
@@ -92,6 +92,13 @@ function writeCsv(file: string, rows: any[][]) {
   fs.writeFileSync(file, rows.map((row) => row.map(csvEscape).join(",")).join("\n") + "\n");
 }
 
+/** 人間向け成果物（md/csv）の出力先パスを組む。reports/ サブディレクトリは無ければ作る。 */
+function reportPath(outDir: string, name: string) {
+  const dir = path.join(outDir, REPORT_SUBDIR);
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, name);
+}
+
 function yoy(cur: number, prev: number) {
   return prev ? +(((cur - prev) / prev) * 100).toFixed(2) : NaN;
 }
@@ -145,6 +152,8 @@ function buildAnnual(outDir: string, config: AnnualConfig) {
   const lastYear = config.years[config.years.length - 1];
   const valueUnit = config.valueUnit ?? "value";
   const display = config.display ?? { label: valueUnit };
+  const csvPath = reportPath(outDir, config.outputs.csv);
+  const mdPath = config.outputs.markdown ? reportPath(outDir, config.outputs.markdown) : undefined;
 
   const csvRows: any[][] = [
     [
@@ -177,7 +186,7 @@ function buildAnnual(outDir: string, config: AnnualConfig) {
     100,
     "",
   ].filter((v) => v !== undefined));
-  writeCsv(path.join(outDir, config.outputs.csv), csvRows);
+  writeCsv(csvPath, csvRows);
 
   if (config.outputs.markdown) {
     const tableHeader = [
@@ -244,11 +253,11 @@ function buildAnnual(outDir: string, config: AnnualConfig) {
     ]
       .filter((line) => line !== undefined)
       .join("\n");
-    fs.writeFileSync(path.join(outDir, config.outputs.markdown), md);
+    fs.writeFileSync(mdPath!, md);
   }
 
-  const outputs = [path.join(outDir, config.outputs.csv)];
-  if (config.outputs.markdown) outputs.push(path.join(outDir, config.outputs.markdown));
+  const outputs = [csvPath];
+  if (mdPath) outputs.push(mdPath);
   appendAuditEvent({
     type: "report",
     kind: config.kind,
@@ -267,8 +276,8 @@ function buildAnnual(outDir: string, config: AnnualConfig) {
   });
 
   console.log("生成完了:");
-  console.log(`  ${path.join(outDir, config.outputs.csv)}`);
-  if (config.outputs.markdown) console.log(`  ${path.join(outDir, config.outputs.markdown)}`);
+  console.log(`  ${csvPath}`);
+  if (mdPath) console.log(`  ${mdPath}`);
   console.log(`${config.title}: ${displayValue(lastTotal, display)} ${display.label}`);
 }
 
@@ -301,6 +310,7 @@ function buildMonthly(outDir: string, config: MonthlyConfig) {
 
   const valueUnit = config.valueUnit ?? "value";
   const display = config.display ?? { label: valueUnit };
+  const csvPath = reportPath(outDir, config.outputs.csv);
   console.log(config.consoleTitle ?? config.title);
   if (config.consoleSubtitle) console.log(config.consoleSubtitle);
   console.log();
@@ -320,7 +330,7 @@ function buildMonthly(outDir: string, config: MonthlyConfig) {
     console.log([month, ...values.map((value) => displayValue(value, display)), displayValue(total, display)].map((v) => String(v).padStart(12)).join(""));
     csvRows.push([month, ...values, total, scaledValue(total, display)]);
   }
-  writeCsv(path.join(outDir, config.outputs.csv), csvRows);
+  writeCsv(csvPath, csvRows);
 
   const inputs: string[] = [];
   for (const item of config.items) {
@@ -337,7 +347,7 @@ function buildMonthly(outDir: string, config: MonthlyConfig) {
     statsDataId: config.statsDataId,
     itemCount: config.items.length,
     inputs,
-    outputs: [path.join(outDir, config.outputs.csv)],
+    outputs: [csvPath],
     summary: {
       range: [months[0], months[months.length - 1]],
       monthCount: months.length,
@@ -346,7 +356,7 @@ function buildMonthly(outDir: string, config: MonthlyConfig) {
 
   console.log();
   console.log(`対象期間: ${months[0]} 〜 ${months[months.length - 1]}（${months.length}か月）`);
-  console.log(`CSV: ${path.join(outDir, config.outputs.csv)}`);
+  console.log(`CSV: ${csvPath}`);
 }
 
 export function runReport(outDir: string, configFile: string) {
