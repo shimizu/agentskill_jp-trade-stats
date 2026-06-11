@@ -126,6 +126,8 @@ npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <id> --cdCat01 
 ## 注意事項
 
 - 出力物・レポートには出典（**財務省貿易統計 / e-Stat**）を明記する（クレジット表示）。
+- `estat.ts` は既定で API リクエストログを `out/api-requests.jsonl` に追記する。ログにはリクエスト URL を残すが、`appId` は `REDACTED` に置換される。
+- ログ保存先を変える場合は `--logDir <dir>`、一時的に無効化する場合は `--noLog` を使う。
 - 速報値は後日改定されるため、確報以降と混在させない。
 - 年計は年次表、または月次表の12月分の累計欄を使う。
 - 大量・連続リクエストは控えめに。複数表は `getStatsDatas`（一括）も検討。
