@@ -42,9 +42,10 @@ async function call(path: string, params: Record<string, string | number | undef
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
   const json: any = await res.json();
   // e-Stat のレスポンスは必ず RESULT ブロックを持ち、STATUS が 0 で成功。
+  // 実レスポンスや変換経路によって数値 0 ではなく文字列 "0" が返ることがあるため両方を許容する。
   const root = json[Object.keys(json)[0]];
   const status = root?.RESULT?.STATUS;
-  if (status !== 0) {
+  if (status !== 0 && status !== "0") {
     throw new Error(`e-Stat error ${status}: ${root?.RESULT?.ERROR_MSG ?? "unknown"}`);
   }
   return root;
@@ -79,7 +80,18 @@ async function cmdList(opts: Record<string, string>) {
     updated: t.UPDATED_DATE,
     rows: t.OVERALL_TOTAL_NUMBER,
   }));
-  console.log(JSON.stringify({ count: out.length, tables: out }, null, 2));
+  // 検索結果が limit を超える場合の継続取得情報。NEXT_KEY があれば
+  // 次回 --start <nextKey> で続きを取得できる（自動全ページ取得はしない）。
+  const ri = root.DATALIST_INF?.RESULT_INF;
+  const resultInfo = ri
+    ? {
+        total: ri.TOTAL_NUMBER,
+        from: ri.FROM_NUMBER,
+        to: ri.TO_NUMBER,
+        nextKey: ri.NEXT_KEY, // 続きがある場合のみ存在
+      }
+    : undefined;
+  console.log(JSON.stringify({ count: out.length, resultInfo, tables: out }, null, 2));
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +197,7 @@ async function cmdFetch(opts: Record<string, string>) {
 
   if (opts.csv) {
     const cols = Array.from(
-      records.reduce((s: Set<string>, r) => {
+      records.reduce<Set<string>>((s, r) => {
         Object.keys(r).forEach((k) => s.add(k));
         return s;
       }, new Set<string>()),
