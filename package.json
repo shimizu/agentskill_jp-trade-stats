@@ -1,0 +1,49 @@
+{
+  "name": "jp-trade-stats",
+  "version": "0.1.0",
+  "description": "財務省貿易統計（普通貿易統計）を e-Stat API から取得・分析するスキルをエージェント環境（Claude Code / Codex / Gemini CLI）に導入する CLI インストーラ",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shimizu/jp-trade-stats.git"
+  },
+  "homepage": "https://github.com/shimizu/jp-trade-stats#readme",
+  "bugs": {
+    "url": "https://github.com/shimizu/jp-trade-stats/issues"
+  },
+  "bin": {
+    "jp-trade-stats": "dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "template/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "claude-code",
+    "skill",
+    "trade-statistics",
+    "e-stat",
+    "japan",
+    "customs",
+    "cli"
+  ],
+  "author": "shimizu",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,6 @@
+# files で公開対象を明示しているため基本は ignore しない。
+# template 配下の dot ディレクトリが npm に除外されないよう明示的に含める。
+!template/.agent/
+!template/.claude/
+!template/.codex/
+!template/.gemini/
