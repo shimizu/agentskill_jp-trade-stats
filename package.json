@@ -1,6 +1,6 @@
 {
   "name": "jp-trade-stats",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "財務省貿易統計（普通貿易統計）を e-Stat API から取得・分析するスキルをエージェント環境（Claude Code / Codex / Gemini CLI）に導入する CLI インストーラ",
   "type": "module",
   "repository": {
