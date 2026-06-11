@@ -10,7 +10,6 @@
 │   ├── .claude/skills/...             # Claude Code 用プロキシ
 │   ├── .codex/skills/...              # Codex 用プロキシ
 │   └── .gemini/skills/...             # Gemini CLI 用プロキシ
-├── sample/generate-web-assets/        # 別スキルのサンプル。通常の保守対象外
 ├── dist/                              # tsup のビルド出力
 └── docs/                              # 引き継ぎ資料
 ```
