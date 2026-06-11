@@ -19,21 +19,10 @@
  *   既定で out/api-requests.jsonl に、リクエスト URL（appId は REDACTED）を追記する。
  *   保存先は --logDir <dir> で変更でき、--noLog で無効化できる。
  */
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { configureAuditLog, appendApiRequest, appendAuditEvent } from "./audit-log.ts";
 
 const BASE = "https://api.e-stat.go.jp/rest/3.0/app/json";
 const TRADE_STATS_CODE = "00350300"; // 普通貿易統計
-
-type RequestLogConfig = {
-  enabled: boolean;
-  dir: string;
-};
-
-let requestLog: RequestLogConfig = {
-  enabled: true,
-  dir: "out",
-};
 
 function appId(): string {
   const id = process.env.ESTAT_APP_ID;
@@ -54,7 +43,7 @@ async function call(path: string, params: Record<string, string | number | undef
     if (v !== undefined && v !== "") usp.set(k, String(v));
   }
   const url = `${BASE}/${path}?${usp.toString()}`;
-  appendRequestLog(path, url);
+  appendApiRequest(path, url);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
   const json: any = await res.json();
@@ -66,30 +55,6 @@ async function call(path: string, params: Record<string, string | number | undef
     throw new Error(`e-Stat error ${status}: ${root?.RESULT?.ERROR_MSG ?? "unknown"}`);
   }
   return root;
-}
-
-function configureRequestLog(opts: Record<string, string>) {
-  requestLog = {
-    enabled: opts.noLog !== "true",
-    dir: path.resolve(opts.logDir ?? "out"),
-  };
-}
-
-function redactUrl(url: string) {
-  const parsed = new URL(url);
-  if (parsed.searchParams.has("appId")) parsed.searchParams.set("appId", "REDACTED");
-  return parsed.toString();
-}
-
-function appendRequestLog(endpoint: string, url: string) {
-  if (!requestLog.enabled) return;
-  fs.mkdirSync(requestLog.dir, { recursive: true });
-  const entry = {
-    timestamp: new Date().toISOString(),
-    endpoint,
-    url: redactUrl(url),
-  };
-  fs.appendFileSync(path.join(requestLog.dir, "api-requests.jsonl"), JSON.stringify(entry) + "\n");
 }
 
 function asArray<T>(x: T | T[] | undefined): T[] {
@@ -236,6 +201,26 @@ async function cmdFetch(opts: Record<string, string>) {
     records,
   };
 
+  // 計測（金額/数量/月）の別を要約する。貿易統計では計測は tab か cat02 に入る。
+  // 後から「合計が金額/数量/月を混ぜていないか」を人が検証できるよう、distinct を残す。
+  const measureKey = records.some((r) => r.tab !== undefined) ? "tab" : "cat02";
+  const measures = new Map<string, { code: string; name?: string; unit?: string }>();
+  for (const r of records) {
+    const code = r[measureKey];
+    if (code === undefined) continue;
+    if (!measures.has(code)) measures.set(code, { code, name: r[`${measureKey}_name`], unit: r.unit });
+  }
+  appendAuditEvent({
+    type: "fetch",
+    statsDataId: payload.statsDataId,
+    title: payload.title,
+    filters: passthrough,
+    recordCount: payload.recordCount,
+    measureKey,
+    measures: [...measures.values()],
+    output: opts.csv ? "csv" : "json",
+  });
+
   if (opts.csv) {
     const cols = Array.from(
       records.reduce<Set<string>>((s, r) => {
@@ -276,7 +261,7 @@ function parseArgs(argv: string[]): Record<string, string> {
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const opts = parseArgs(rest);
-  configureRequestLog(opts);
+  configureAuditLog(opts);
   try {
     switch (cmd) {
       case "list":

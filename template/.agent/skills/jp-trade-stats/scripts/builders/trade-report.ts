@@ -14,6 +14,7 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runReport } from "./report-core.ts";
+import { configureAuditLog } from "../audit-log.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PRESETS: Record<string, string> = {
@@ -61,5 +62,8 @@ if (!configFile) {
   usage();
   process.exit(1);
 }
+
+// 監査ログは出力先（outDir）に揃える。--noLog で無効化できる。
+configureAuditLog({ logDir: outDir, noLog: opts.noLog });
 
 runReport(outDir, configFile);

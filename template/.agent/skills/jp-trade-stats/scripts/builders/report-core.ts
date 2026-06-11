@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { appendAuditEvent } from "../audit-log.ts";
 
 type Rec = Record<string, any> & { value: number | null };
 
@@ -246,6 +247,25 @@ function buildAnnual(outDir: string, config: AnnualConfig) {
     fs.writeFileSync(path.join(outDir, config.outputs.markdown), md);
   }
 
+  const outputs = [path.join(outDir, config.outputs.csv)];
+  if (config.outputs.markdown) outputs.push(path.join(outDir, config.outputs.markdown));
+  appendAuditEvent({
+    type: "report",
+    kind: config.kind,
+    title: config.title,
+    statsDataId: config.statsDataId,
+    itemCount: config.items.length,
+    inputs: config.items.map((item) =>
+      item.file ? path.resolve(outDir, item.file) : resolvePattern(outDir, config.input.pattern, { code: item.code }),
+    ),
+    outputs,
+    summary: {
+      lastYear: yearLabel(lastYear),
+      lastTotal,
+      yoyPct: Number.isNaN(totalYoY) ? null : totalYoY,
+    },
+  });
+
   console.log("生成完了:");
   console.log(`  ${path.join(outDir, config.outputs.csv)}`);
   if (config.outputs.markdown) console.log(`  ${path.join(outDir, config.outputs.markdown)}`);
@@ -301,6 +321,28 @@ function buildMonthly(outDir: string, config: MonthlyConfig) {
     csvRows.push([month, ...values, total, scaledValue(total, display)]);
   }
   writeCsv(path.join(outDir, config.outputs.csv), csvRows);
+
+  const inputs: string[] = [];
+  for (const item of config.items) {
+    for (const year of config.years) {
+      inputs.push(
+        item.file ? path.resolve(outDir, item.file) : resolvePattern(outDir, config.input.pattern, { code: item.code, year }),
+      );
+    }
+  }
+  appendAuditEvent({
+    type: "report",
+    kind: config.kind,
+    title: config.title,
+    statsDataId: config.statsDataId,
+    itemCount: config.items.length,
+    inputs,
+    outputs: [path.join(outDir, config.outputs.csv)],
+    summary: {
+      range: [months[0], months[months.length - 1]],
+      monthCount: months.length,
+    },
+  });
 
   console.log();
   console.log(`対象期間: ${months[0]} 〜 ${months[months.length - 1]}（${months.length}か月）`);

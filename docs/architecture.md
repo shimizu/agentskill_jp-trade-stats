@@ -36,6 +36,7 @@
 - `SKILL.md`: エージェント向けの操作手順。ユーザー依頼から `list -> meta -> fetch -> analyze` へ誘導します。
 - `scripts/estat.ts`: e-Stat API クライアント兼 CLI。統計表検索、メタ取得、データ取得を担当します。
 - `scripts/analyze.ts`: `estat.ts fetch` の正規化 JSON を集計します。
+- `scripts/audit-log.ts`: 取得・分析の監査証跡を `out/` に残す共有ロギング（下記「監査証跡」）。`estat.ts` / `analyze.ts` / `builders/` が共通で利用します。
 - `scripts/builders/`: レポートや CSV 生成の再利用スクリプト置き場です。
 - `references/`: API、統計表、コード体系の説明資料です。
 
@@ -66,3 +67,13 @@
 - `country`: `area` があれば国別、なければ `cat02` 別にランキングします。
 
 品別国別表では金額・数量・月の区別が `cat02` に入ることがあります。集計前に `--cdCat02 140` などで計測を固定しないと、金額と数量や月別値が混ざるため、`sanityWarn` で警告します。
+
+## 監査証跡
+
+取得・分析の正当性を後から人が検証できるよう、各スクリプトは実行時に `out/` へ証跡を残します（`scripts/audit-log.ts` に集約）。
+
+- `out/api-requests.jsonl`: API 呼び出しごとの URL（`appId` は `REDACTED`）。`appendApiRequest` が追記します。
+- `out/audit-log.jsonl`: 操作レベルの構造化イベント（`fetch` / `analyze` / `report`）。`appendAuditEvent` が追記します。
+- `out/audit-note.md`: エージェントが書く、表・コード選定の根拠（人間可読）。`SKILL.md` のステップ5で指示します。
+
+保存先は全スクリプト共通の `--logDir <dir>`、無効化は `--noLog` で制御します（`configureAuditLog`）。`api-requests.jsonl` のフォーマット・既定の出力先は従来どおりです。

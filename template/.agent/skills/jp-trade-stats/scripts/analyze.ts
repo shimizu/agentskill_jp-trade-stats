@@ -25,12 +25,14 @@
  *   --top N               （country モード）上位 N 件を残す
  */
 
+import * as fs from "node:fs";
+import { configureAuditLog, appendAuditEvent } from "./audit-log.ts";
+
 type Rec = Record<string, any> & { value: number | null };
 
 function loadInput(file?: string): Promise<Rec[]> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    const fs = require("fs");
     const stream = file ? fs.createReadStream(file) : process.stdin;
     stream.on("data", (c: Buffer) => chunks.push(c));
     stream.on("end", () => {
@@ -125,31 +127,31 @@ function country(records: Rec[], top: number) {
 // フィルタ後にデータが空のとき、または計測（金額/数量/月）が混在したまま合計すると
 // 無意味になるときに警告する。貿易統計では計測は `tab` 次元ではなく cat02
 // （140=合計_金額, 170=1月_金額 …）に入る。詳細は references/trade-tables.md を参照。
-function sanityWarn(filtered: Rec[], raw: Rec[], o: Record<string, string>) {
+// 警告文字列の配列を返す（呼び出し側で stderr 出力し、監査ログにも残す）。
+function sanityWarn(filtered: Rec[], raw: Rec[], o: Record<string, string>): string[] {
   if (filtered.length === 0) {
     if (o.tab && !raw.some((r) => r.tab !== undefined)) {
-      console.error(
-        `WARNING: --tab ${o.tab} matched 0 records — this table has no 'tab' dimension. ` +
+      return [
+        `--tab ${o.tab} matched 0 records — this table has no 'tab' dimension. ` +
           `The measure is likely in cat02; fix it at fetch time with --cdCat02 <code> ` +
           `(e.g. 140=合計_金額, 170=1月_金額).`,
-      );
-    } else {
-      console.error("WARNING: 0 records after filtering — check your --tab/--area/--cat values.");
+      ];
     }
-    return;
+    return ["0 records after filtering — check your --tab/--area/--cat values."];
   }
   // 計測の次元に複数の異なる値が含まれていると、合計が数量・金額・各月を混ぜてしまう。
   const measureKey = filtered.some((r) => r.tab !== undefined) ? "tab" : "cat02";
   const measures = new Set(filtered.map((r) => r[measureKey]).filter((v) => v !== undefined));
   if (measures.size > 1) {
     const sample = [...measures].slice(0, 6).join(", ");
-    console.error(
-      `WARNING: aggregating over ${measures.size} different '${measureKey}' measures (${sample}${
+    return [
+      `aggregating over ${measures.size} different '${measureKey}' measures (${sample}${
         measures.size > 6 ? ", …" : ""
       }) — sums mix 金額/数量/月 and are likely meaningless. ` +
         `Fix the measure at fetch time, e.g. --cdCat02 140 (年計金額).`,
-    );
+    ];
   }
+  return [];
 }
 
 async function main() {
@@ -163,28 +165,49 @@ async function main() {
     }
   }
 
+  configureAuditLog(o);
   const raw = await loadInput(o.in);
   const records = applyFilters(raw, o);
-  sanityWarn(records, raw, o);
+  const warnings = sanityWarn(records, raw, o);
+  for (const w of warnings) console.error(`WARNING: ${w}`);
+
+  const mode = o.mode ?? "timeseries";
   let result: any;
+  let summary: any;
   switch (o.mode) {
-    case "yoy":
-      result = { mode: "yoy", filters: { tab: o.tab, area: o.area, cat: o.cat }, series: yoy(records) };
+    case "yoy": {
+      const series = yoy(records);
+      result = { mode: "yoy", filters: { tab: o.tab, area: o.area, cat: o.cat }, series };
+      summary = { points: series.length, latest: series[series.length - 1] };
       break;
-    case "country":
-      result = {
-        mode: "country",
-        top: country(records, o.top ? parseInt(o.top, 10) : 15),
-      };
+    }
+    case "country": {
+      const top = country(records, o.top ? parseInt(o.top, 10) : 15);
+      result = { mode: "country", top };
+      summary = { top5: top.slice(0, 5).map((t) => ({ name: t.name, sum: t.sum })) };
       break;
+    }
     case "timeseries":
-    default:
-      result = {
-        mode: "timeseries",
-        filters: { tab: o.tab, area: o.area, cat: o.cat },
-        series: timeseries(records),
+    default: {
+      const series = timeseries(records);
+      result = { mode: "timeseries", filters: { tab: o.tab, area: o.area, cat: o.cat }, series };
+      summary = {
+        points: series.length,
+        range: series.length ? [series[0].name ?? series[0].code, series[series.length - 1].name ?? series[series.length - 1].code] : [],
       };
+    }
   }
+
+  appendAuditEvent({
+    type: "analyze",
+    mode,
+    filters: { tab: o.tab, area: o.area, cat: o.cat },
+    inputRecordCount: raw.length,
+    filteredRecordCount: records.length,
+    warnings,
+    summary,
+  });
+
   console.log(JSON.stringify(result, null, 2));
 }
 
