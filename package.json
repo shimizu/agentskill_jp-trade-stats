@@ -5,11 +5,11 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shimizu/jp-trade-stats.git"
+    "url": "git+https://github.com/shimizu/agentskill_jp-trade-stats.git"
   },
-  "homepage": "https://github.com/shimizu/jp-trade-stats#readme",
+  "homepage": "https://github.com/shimizu/agentskill_jp-trade-stats#readme",
   "bugs": {
-    "url": "https://github.com/shimizu/jp-trade-stats/issues"
+    "url": "https://github.com/shimizu/agentskill_jp-trade-stats/issues"
   },
   "bin": {
     "jp-trade-stats": "dist/cli.js"
