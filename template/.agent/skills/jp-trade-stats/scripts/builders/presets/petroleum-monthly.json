@@ -1,0 +1,26 @@
+{
+  "kind": "monthly-series",
+  "title": "石油由来素材 月次輸入額系列",
+  "consoleTitle": "石油由来素材(4分野5章) 月次輸入額 [億円]  出典: 財務省貿易統計/e-Stat",
+  "consoleSubtitle": "（2025年=確々報, 2026年1-3月=確報・4月=速報）",
+  "valueUnit": "千円",
+  "display": {
+    "label": "億円",
+    "divisor": 100000,
+    "maximumFractionDigits": 0
+  },
+  "input": {
+    "pattern": "data/monthly-{code}-{year}.json"
+  },
+  "outputs": {
+    "csv": "petroleum-monthly-2025-2026.csv"
+  },
+  "years": [2025, 2026],
+  "items": [
+    { "code": "29", "name": "有機化学品" },
+    { "code": "39", "name": "プラスチック" },
+    { "code": "40", "name": "ゴム" },
+    { "code": "54", "name": "人造繊維(長)" },
+    { "code": "55", "name": "人造繊維(短)" }
+  ]
+}

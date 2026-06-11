@@ -138,21 +138,32 @@ npx tsx .agent/skills/jp-trade-stats/scripts/estat.ts fetch --id <id> --cdCat01 
 
 ## ビルド／レポート生成スクリプトの保管（重要）
 
-集計・レポート生成のために一度書いたスクリプトは**使い捨てにせず、`.agent/skills/jp-trade-stats/scripts/builders/` に保存して再利用する**。
-同種の依頼が来たら、ゼロから書き直さず既存ビルダーを使う／引数や対象を差し替えて流用する。
+集計・レポート生成のために一度書いたスクリプトや設定は**使い捨てにせず、`.agent/skills/jp-trade-stats/scripts/builders/` に保存して再利用する**。
+同種の依頼が来たら、ゼロから書き直さず `trade-report.ts` とプリセット設定を使う／設定を複製して対象を差し替える。
 
 - 保管先: `.agent/skills/jp-trade-stats/scripts/builders/`。
-- 命名: **用途が分かる英語ケバブケース**（例: `chapter-aggregate-annual-report.ts`）。`build-xxx` のような汎称は避ける。
-- 入出力: 出力先は**引数で受け取り、既定は作業ディレクトリ直下の `out/`**
-  （`const OUT = path.resolve(process.argv[2] ?? "out")`）。生成物（.md/.csv）と取得データ（`out/data/*.json`）は `out/` に置く。
-- 先頭のドキュコメントに用途・入力・実行例を必ず書く。
+- 汎用ビルダー: `trade-report.ts`。`--config <json>` または `--preset <name>` で実行する。
+- プリセット: `.agent/skills/jp-trade-stats/scripts/builders/presets/` に、用途が分かる英語ケバブケースで保存する。
+- 入出力: 出力先は**引数で受け取り、既定は作業ディレクトリ直下の `out/`**。生成物（.md/.csv）と取得データ（`out/data/*.json`）は `out/` に置く。
+- 設定の基本項目:
+  - `kind`: `annual-comparison`（年次比較 Markdown＋CSV）または `monthly-series`（月次系列 CSV）。
+  - `items`: 合算・比較する対象コードと名称（例: HS 2桁章、HS 4桁項、国コードなど）。
+  - `input.pattern`: `data/chapter-{code}.json` や `data/monthly-{code}-{year}.json` のような入力ファイル名規則。
+  - `years`, `monthCodeMap`, `outputs`, `display`: 対象期間、月別 `cat02` コード、出力名、単位換算。
+- 互換入口や特殊用途の入口を追加する場合は、先頭のドキュコメントに用途・入力・実行例を必ず書く。
 
 ### 既存ビルダー
 
-- `.agent/skills/jp-trade-stats/scripts/builders/chapter-aggregate-annual-report.ts` — 章合算の**年次**輸入額推計レポート（Markdown＋CSV）。
-  入力 `out/data/chapter-<NN>.json`（cat02=140 の年計金額）。実行: `npx tsx .agent/skills/jp-trade-stats/scripts/builders/chapter-aggregate-annual-report.ts [outDir]`。
-- `.agent/skills/jp-trade-stats/scripts/builders/chapter-aggregate-monthly-series.ts` — 章合算の**月次**輸入額系列（CSV）。
-  入力 `out/data/monthly-<NN>-<year>.json`（cat02 の月別金額）。実行: `npx tsx .agent/skills/jp-trade-stats/scripts/builders/chapter-aggregate-monthly-series.ts [outDir]`。
+- `.agent/skills/jp-trade-stats/scripts/builders/trade-report.ts` — 設定駆動の汎用レポート生成。実行:
+  `npx tsx .agent/skills/jp-trade-stats/scripts/builders/trade-report.ts [outDir] --config <config.json>`。
+- `.agent/skills/jp-trade-stats/scripts/builders/presets/petroleum-annual.json` — 石油由来素材の**年次**輸入額推計レポート（Markdown＋CSV）。
+  入力 `out/data/chapter-<NN>.json`（cat02=140 の年計金額）。実行:
+  `npx tsx .agent/skills/jp-trade-stats/scripts/builders/trade-report.ts [outDir] --preset petroleum-annual`。
+- `.agent/skills/jp-trade-stats/scripts/builders/presets/petroleum-monthly.json` — 石油由来素材の**月次**輸入額系列（CSV）。
+  入力 `out/data/monthly-<NN>-<year>.json`（cat02 の月別金額）。実行:
+  `npx tsx .agent/skills/jp-trade-stats/scripts/builders/trade-report.ts [outDir] --preset petroleum-monthly`。
+- `.agent/skills/jp-trade-stats/scripts/builders/chapter-aggregate-annual-report.ts` と
+  `.agent/skills/jp-trade-stats/scripts/builders/chapter-aggregate-monthly-series.ts` は、従来コマンド互換の入口。
 
 ## スクリプト
 
