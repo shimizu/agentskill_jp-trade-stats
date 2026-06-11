@@ -5,3 +5,6 @@ dist/
 .env
 .env.local
 out/
+AGENT.md
+Claoud.md
+Gemini.md
